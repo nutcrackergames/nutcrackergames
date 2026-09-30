@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gravity Sandbox 3D — N-Body Simulator</title>
+<style>
+:root{--bg:#05070d;--p2:#101830;--line:#1e2a4a;--text:#e8ecf7;--dim:#8a94b8;--accent:#7fd1ff;--danger:#ff6b7f}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+#app{position:fixed;inset:0}
+canvas{display:block;touch-action:none;-webkit-user-select:none;user-select:none}
+.panel{background:rgba(12,18,32,.88);border:1px solid var(--line);border-radius:12px;padding:10px 12px;backdrop-filter:blur(6px)}
+#hud{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:10px;right:10px;pointer-events:none}
+#toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;pointer-events:auto;max-width:100%}
+button{background:var(--p2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.active{background:var(--accent);color:#031018;border-color:var(--accent);font-weight:600}
+button.danger:hover{border-color:var(--danger)}
+.sep{width:1px;background:var(--line);align-self:stretch;margin:0 4px}
+label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+input[type=range]{width:90px;accent-color:var(--accent)}
+input[type=number]{width:64px;background:var(--p2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px}
+#bottomBar{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:10px;right:10px;display:flex;justify-content:space-between;gap:10px;pointer-events:none}
+#bottomBar .panel{pointer-events:auto;font-size:12px;color:var(--dim);line-height:1.5}
+#stats{text-align:right}#stats b,#info b{color:var(--accent)}
+@media (max-width:700px){
+ #hud{left:6px;right:6px;top:calc(6px + env(safe-area-inset-top,0px))}
+ #toolbar{flex-wrap:nowrap;overflow-x:auto;width:100%;padding:8px;scrollbar-width:none}
+ #toolbar::-webkit-scrollbar{display:none}
+ #toolbar>*{flex:0 0 auto;white-space:nowrap}
+ button{padding:9px 12px;font-size:14px}
+ input[type=number]{font-size:16px;width:60px}
+ #bottomBar{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+ #bottomBar .panel{font-size:11px;padding:8px 10px}
+ #info{flex:1}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="hud"><div class="panel" id="toolbar">
+ <button id="viewBtn">🖐 View</button>
+ <button id="selBtn">👆 Select</button>
+ <button id="modeBtn">➕ Place</button>
+ <div class="sep"></div>
+ <button data-type="star" class="typeBtn">⭐ Star</button>
+ <button data-type="planet" class="typeBtn active">🪐 Planet</button>
+ <button data-type="asteroid" class="typeBtn">☄️ Asteroid</button>
+ <label>Mass <input id="massInput" type="number" value="20" min="0.1"></label>
+ <label>Height <input id="hRange" type="range" min="-300" max="300" value="0"><span id="hVal">0</span></label>
+ <div class="sep"></div>
+ <button id="playBtn">⏸ Pause</button>
+ <button id="trailBtn" class="active">〰 Trails</button>
+ <button id="followBtn">🎥 Follow</button>
+ <button id="delBtn" class="danger">✕ Delete sel.</button>
+ <button id="clearBtn" class="danger">🗑 Clear</button>
+ <button id="resetCam">🎯 Reset view</button>
+ <div class="sep"></div>
+ <label>Speed <input id="speedRange" type="range" min="0" max="300" value="100"><span id="speedVal">1.0×</span></label>
+</div></div>
+<div id="bottomBar">
+ <div class="panel" id="info"></div>
+ <div class="panel" id="stats">FPS <b id="fps">60</b><br>Bodies <b id="cnt">0</b></div>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const G=6000,SOFT=8,TRAIL=260;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x05070d);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,1,30000);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+const cv=renderer.domElement;document.getElementById('app').prepend(cv);
+addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
+
+scene.add(new THREE.AmbientLight(0x334466,0.7));
+const grid=new THREE.GridHelper(3000,60,0x2a3a66,0x131c38);grid.material.transparent=true;grid.material.opacity=0.55;scene.add(grid);
+// starfield
+{const n=1800,a=new Float32Array(n*3);for(let i=0;i<n;i++){const u=Math.random()*2-1,t=Math.random()*6.283,s=Math.sqrt(1-u*u);a[i*3]=s*Math.cos(t)*12000;a[i*3+1]=u*12000;a[i*3+2]=s*Math.sin(t)*12000}
+const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(a,3));
+scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:1.6,sizeAttenuation:false})))}
+
+// glow texture
+const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,240,180,.9)');g.addColorStop(1,'rgba(255,240,180,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
+const sphereGeo=new THREE.SphereGeometry(1,32,20);
+
+// ---------- bodies ----------
+let bodies=[],running=true,timeScale=1,showTrails=true,selected=null,mode='view',curType='planet';
+const COL={star:0xffe9a8,planet:0x4f9fe0,asteroid:0xb0b0b0},K={star:1,planet:.55,asteroid:.3};
+const radiusFor=(m,t)=>Math.max(t==='asteroid'?1.8:3,Math.cbrt(m)*1.4*K[t]);
+
+function addBody(p,v,mass,type){
+ const r=radiusFor(mass,type);
+ const mat=type==='star'?new THREE.MeshBasicMaterial({color:COL.star}):new THREE.MeshStandardMaterial({color:COL[type],roughness:.8,metalness:0});
+ const mesh=new THREE.Mesh(sphereGeo,mat);mesh.scale.setScalar(r);mesh.position.copy(p);
+ if(type==='star'){mesh.add(new THREE.PointLight(0xfff2cc,1.7));
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));s.scale.set(8,8,1);mesh.add(s)}
+ scene.add(mesh);
+ const arr=new Float32Array(TRAIL*3);for(let i=0;i<TRAIL;i++){arr[i*3]=p.x;arr[i*3+1]=p.y;arr[i*3+2]=p.z}
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(arr,3));
+ const line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:type==='star'?0xffd27f:COL[type],transparent:true,opacity:.5}));
+ line.frustumCulled=false;line.visible=showTrails;scene.add(line);
+ bodies.push({x:p.x,y:p.y,z:p.z,vx:v.x,vy:v.y,vz:v.z,mass,type,r,mesh,line,arr,ax:0,ay:0,az:0});
+}
+function killBody(b){scene.remove(b.mesh);scene.remove(b.line);b.line.geometry.dispose();b.mesh.material.dispose();bodies=bodies.filter(o=>o!==b);if(selected===b)selected=null}
+
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+// Sun–Earth–Moon (Moon orbit tilted 20° for a 3D feel)
+addBody(V(0,0,0),V(0,0,0),455,'star');
+addBody(V(250,0,0),V(0,0,104.5),8,'planet');
+addBody(V(275,0,0),V(0,14.99,145.68),.5,'asteroid');
+
+// ---------- physics ----------
+function step(dt){
+ const n=bodies.length;
+ for(let i=0;i<n;i++){const a=bodies[i];let ax=0,ay=0,az=0;
+  for(let j=0;j<n;j++){if(i===j)continue;const b=bodies[j];
+   const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d2=dx*dx+dy*dy+dz*dz+SOFT*SOFT,d=Math.sqrt(d2),f=G*b.mass/(d2*d);
+   ax+=f*dx;ay+=f*dy;az+=f*dz}
+  a.ax=ax;a.ay=ay;a.az=az}
+ for(const b of bodies){b.vx+=b.ax*dt;b.vy+=b.ay*dt;b.vz+=b.az*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt}
+ for(let i=0;i<bodies.length;i++)for(let j=bodies.length-1;j>i;j--){
+  const a=bodies[i],b=bodies[j];
+  if(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<(a.r+b.r)*.6){
+   const M=a.mass+b.mass;
+   a.vx=(a.vx*a.mass+b.vx*b.mass)/M;a.vy=(a.vy*a.mass+b.vy*b.mass)/M;a.vz=(a.vz*a.mass+b.vz*b.mass)/M;
+   a.x=(a.x*a.mass+b.x*b.mass)/M;a.y=(a.y*a.mass+b.y*b.mass)/M;a.z=(a.z*a.mass+b.z*b.mass)/M;
+   if(b.mass>a.mass&&b.type!==a.type){a.type=b.type;a.mesh.material.color.setHex(COL[b.type])}
+   a.mass=M;a.r=radiusFor(M,a.type);a.mesh.scale.setScalar(a.r);
+   if(selected===b)selected=a;killBody(b)}}
+}
+
+// ---------- camera orbit ----------
+const DEF={theta:.6,phi:1.05,r:750};
+let orb={...DEF,target:V(0,0,0)};
+function updateCam(){const s=Math.sin(orb.phi);
+ camera.position.set(orb.target.x+orb.r*s*Math.sin(orb.theta),orb.target.y+orb.r*Math.cos(orb.phi),orb.target.z+orb.r*s*Math.cos(orb.theta));
+ camera.lookAt(orb.target)}
+let follow=false;
+function setFollow(v){follow=v;$('followBtn').classList.toggle('active',v)}
+function rotate(dx,dy){orb.theta-=dx*.006;orb.phi=Math.max(.05,Math.min(Math.PI-.05,orb.phi-dy*.006))}
+function pan(dx,dy){if(follow)setFollow(false);const k=2*orb.r*Math.tan(27.5*Math.PI/180)/innerHeight,x=V(),y=V(),z=V();
+ camera.updateMatrixWorld();camera.matrixWorld.extractBasis(x,y,z);
+ orb.target.addScaledVector(x,-dx*k).addScaledVector(y,dy*k)}
+
+// ---------- preview + selection ring ----------
+const ring=new THREE.Mesh(sphereGeo,new THREE.MeshBasicMaterial({color:0xffb86b,wireframe:true}));ring.visible=false;scene.add(ring);
+const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(12),3));
+const preview=new THREE.LineSegments(pg,new THREE.LineBasicMaterial({color:0x7fffa0}));preview.frustumCulled=false;preview.visible=false;scene.add(preview);
+const ghost=new THREE.Mesh(sphereGeo,new THREE.MeshBasicMaterial({color:0x7fffa0,transparent:true,opacity:.6}));ghost.visible=false;scene.add(ghost);
+
+// ---------- input ----------
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+let height=0;
+function setNdc(x,y){ndc.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(ndc,camera)}
+function planePoint(x,y){setNdc(x,y);const o=V();return ray.ray.intersectPlane(new THREE.Plane(V(0,1,0),-height),o)?o:null}
+const pointers=new Map();let gest=null,ps=null,pc=null,moved=0,btn=0;
+
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+ e.preventDefault();try{cv.setPointerCapture(e.pointerId)}catch(_){}
+ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===2){ps=null;pc=null;const p=[...pointers.values()];
+  gest={d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1,cx:(p[0].x+p[1].x)/2,cy:(p[0].y+p[1].y)/2,r:orb.r};return}
+ if(pointers.size>2)return;
+ moved=0;btn=e.button;
+ if(mode==='place'&&btn===0&&!e.shiftKey){ps=planePoint(e.clientX,e.clientY);pc=ps?ps.clone():null}
+});
+cv.addEventListener('pointermove',e=>{
+ const prev=pointers.get(e.pointerId);if(!prev)return;
+ const cur={x:e.clientX,y:e.clientY};pointers.set(e.pointerId,cur);
+ if(pointers.size>=2&&gest){const p=[...pointers.values()];
+  const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1,cx=(p[0].x+p[1].x)/2,cy=(p[0].y+p[1].y)/2;
+  orb.r=Math.max(30,Math.min(6000,gest.r*gest.d/d));pan(cx-gest.cx,cy-gest.cy);gest.cx=cx;gest.cy=cy;return}
+ const dx=cur.x-prev.x,dy=cur.y-prev.y;moved+=Math.abs(dx)+Math.abs(dy);
+ if(ps){const q=planePoint(cur.x,cur.y);if(q)pc=q;return}
+ if(e.pointerType==='mouse'){if(btn===1||e.shiftKey)pan(dx,dy);else if(btn===2)rotate(dx,dy)}
+ else if(mode==='view')rotate(dx,dy);
+});
+function up(e){
+ const wasOne=pointers.size===1;pointers.delete(e.pointerId);if(pointers.size<2)gest=null;
+ if(!wasOne||e.type==='pointercancel'){ps=null;pc=null;return}
+ if(ps){ // place body
+  const mass=parseFloat(document.getElementById('massInput').value)||10;
+  let v=V(0,0,0);
+  if(moved>8&&pc){v=ps.clone().sub(pc).multiplyScalar(1.2)} // tap only = zero velocity
+  addBody(ps,v,mass,curType);
+ }else if(moved<8&&e.type==='pointerup'&&mode!=='place'&&(e.pointerType==='mouse'?(btn===0&&!e.shiftKey):mode==='select')){
+  setNdc(e.clientX,e.clientY);const hit=ray.intersectObjects(bodies.map(b=>b.mesh))[0];
+  selected=hit?bodies.find(b=>b.mesh===hit.object):null}
+ ps=null;pc=null;
+}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{e.preventDefault();orb.r=Math.max(30,Math.min(6000,orb.r*(e.deltaY>0?1.1:.9)))},{passive:false});
+addEventListener('keydown',e=>{
+ if((e.key==='Delete'||e.key==='Backspace')&&selected&&e.target.tagName!=='INPUT')killBody(selected);
+ if(e.key===' '&&e.target.tagName!=='INPUT'){e.preventDefault();$('playBtn').click()}});
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+const touchCap=(navigator.maxTouchPoints||0)>0,coarse=matchMedia('(pointer:coarse)').matches;
+let lastMode=touchCap?'view':'select';
+function setMode(m){if(m!=='place')lastMode=m;mode=m;$('viewBtn').classList.toggle('active',m==='view');$('selBtn').classList.toggle('active',m==='select');$('modeBtn').classList.toggle('active',m==='place')}
+$('viewBtn').onclick=()=>setMode('view');$('selBtn').onclick=()=>setMode('select');
+$('modeBtn').onclick=()=>setMode(mode==='place'?lastMode:'place');
+if(!touchCap){$('viewBtn').style.display='none';$('selBtn').style.display='none'}
+$('info').innerHTML=coarse?'<b>View:</b> drag = rotate, pinch = zoom, 2 fingers = pan.<br><b>Select:</b> tap a body, then use 🎥 Follow or ✕ Delete.<br><b>Place:</b> tap = place at rest, drag = launch velocity. Use <b>Height</b> to go above/below the plane.':'<b>Left click</b> = select a body · <b>hold right button + drag</b> = rotate view · scroll = zoom · shift/middle-drag = pan.<br><b>➕ Place</b> mode: click = place at rest, drag = launch velocity. Use <b>Height</b> to go above/below the plane.';
+setMode(lastMode);
+document.querySelectorAll('.typeBtn').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('.typeBtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+ curType=b.dataset.type;$('massInput').value={star:500,planet:20,asteroid:3}[curType];
+ if(mode!=='place')setMode('place')});
+$('playBtn').onclick=function(){running=!running;this.textContent=running?'⏸ Pause':'▶ Play'};
+$('trailBtn').onclick=function(){showTrails=!showTrails;this.classList.toggle('active',showTrails);
+ for(const b of bodies){b.line.visible=showTrails;if(showTrails)for(let i=0;i<TRAIL;i++){b.arr[i*3]=b.x;b.arr[i*3+1]=b.y;b.arr[i*3+2]=b.z}}};
+$('followBtn').onclick=()=>{if(!follow&&!selected){$('followBtn').textContent='Select a body first';setTimeout(()=>$('followBtn').textContent='🎥 Follow',1500);return}setFollow(!follow)};
+$('delBtn').onclick=()=>{if(selected)killBody(selected)};
+$('clearBtn').onclick=()=>{[...bodies].forEach(killBody)};
+$('resetCam').onclick=()=>{setFollow(false);orb={...DEF,target:V(0,0,0)}};
+$('speedRange').oninput=function(){timeScale=this.value/100;$('speedVal').textContent=timeScale.toFixed(1)+'×'};
+$('hRange').oninput=function(){height=+this.value;$('hVal').textContent=this.value};
+
+// ---------- loop ----------
+let last=performance.now(),fa=0,fc=0;
+function loop(now){
+ const raw=Math.min(.05,(now-last)/1000);last=now;
+ if(running){const sub=4;for(let s=0;s<sub;s++)step(raw*timeScale/sub)}
+ for(const b of bodies){b.mesh.position.set(b.x,b.y,b.z);
+  if(showTrails&&running){b.arr.copyWithin(0,3);const n=(TRAIL-1)*3;b.arr[n]=b.x;b.arr[n+1]=b.y;b.arr[n+2]=b.z;b.line.geometry.attributes.position.needsUpdate=true}}
+ if(selected){ring.visible=true;ring.position.set(selected.x,selected.y,selected.z);ring.scale.setScalar(selected.r*1.5+2)}else ring.visible=false;
+ if(ps&&pc){const a=pg.attributes.position.array;
+  a.set([ps.x,ps.y,ps.z,pc.x,pc.y,pc.z,ps.x,ps.y,ps.z,ps.x,0,ps.z]);pg.attributes.position.needsUpdate=true;
+  preview.visible=true;ghost.visible=true;ghost.position.copy(ps);ghost.scale.setScalar(radiusFor(parseFloat($('massInput').value)||10,curType))
+ }else{preview.visible=false;ghost.visible=false}
+ if(follow){if(selected)orb.target.lerp(V(selected.x,selected.y,selected.z),.15);else setFollow(false)}
+ updateCam();renderer.render(scene,camera);
+ fa+=raw;fc++;if(fa>.5){$('fps').textContent=Math.round(fc/fa);fa=0;fc=0}
+ $('cnt').textContent=bodies.length;
+ requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
