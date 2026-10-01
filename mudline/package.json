@@ -1,0 +1,15 @@
+{
+  "name": "mudline",
+  "version": "1.0.0",
+  "description": "Low-poly 5-player war field shooter for the browser",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
