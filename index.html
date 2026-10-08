@@ -436,7 +436,7 @@ function openGame(g, updateHash){
   if (frame) frame.remove();
   frame = document.createElement('iframe');
   frame.title = g.title;
-  frame.allow = 'fullscreen; autoplay; gamepad; gyroscope; accelerometer';
+  frame.allow = 'fullscreen; autoplay; gamepad; gyroscope; accelerometer ;microphone';
   frame.setAttribute('allowfullscreen', '');
   frame.addEventListener('load', () => loading.classList.add('done'));
   frame.src = g.url;
