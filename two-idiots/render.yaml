@@ -1,0 +1,12 @@
+# Render Blueprint: lets you create the service with one click from your GitHub repo.
+services:
+  - type: web
+    name: two-idiots
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"

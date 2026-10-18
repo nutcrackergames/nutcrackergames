@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#8fd8ff">
+<title>Two Idiots — 3D Co-op Ragdoll Chaos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --ink:#2b2d5b; --mint:#19c3a6; --mint-d:#0e8f79; --tang:#ff8a3d; --tang-d:#c75d1a; --sun:#ffc93c; --berry:#ff5d8f; --cream:#fff8e6; --soft:#6d7099;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+  input{-webkit-user-select:text;user-select:text}
+  html,body{height:100%;width:100%;background:#9fdcff;color:var(--ink);font-family:"Arial Rounded MT Bold","Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;touch-action:manipulation}
+  #app{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;background:linear-gradient(#8fd8ff,#eafaff)}
+  #app.rot{width:100vh;height:100vw;height:100dvw;top:0;left:100vw;transform-origin:top left;transform:rotate(90deg)}
+  canvas#gl{position:absolute;left:0;top:0;width:100%;height:100%;display:block;touch-action:none}
+
+  /* ---------- screens ---------- */
+  .screen{position:absolute;inset:0;overflow:auto;z-index:10;display:flex;flex-direction:column;align-items:center;padding:max(12px,env(safe-area-inset-top)) 14px 18px}
+  .screen.hidden{display:none}
+  .screen.dim{background:rgba(190,233,255,.72);backdrop-filter:blur(3px);justify-content:center}
+
+  /* ---------- 3D logo ---------- */
+  .logo{text-align:center;line-height:.86;margin-top:2vh;flex:0 0 auto;pointer-events:none}
+  .logo .row1,.logo .row2{display:block;white-space:nowrap}
+  .logo span.l{display:inline-block;font-family:"Arial Black","Impact","Arial Rounded MT Bold",sans-serif;font-weight:900;
+    -webkit-text-stroke:5px var(--ink);paint-order:stroke fill;transform-origin:50% 90%;
+    animation:bob 2.6s ease-in-out infinite}
+  .logo .row1 span.l{font-size:clamp(46px,11vw,92px);color:var(--mint);
+    text-shadow:1px 1px 0 var(--ink),2px 2px 0 var(--ink),3px 3px 0 var(--ink),4px 4px 0 var(--ink),5px 5px 0 var(--ink),6px 6px 0 var(--ink),7px 7px 0 var(--ink),8px 8px 0 var(--ink),9px 16px 18px rgba(43,45,91,.35)}
+  .logo .row2 span.l{font-size:clamp(56px,15.5vw,132px);color:var(--tang);
+    text-shadow:1px 1px 0 var(--ink),2px 2px 0 var(--ink),3px 3px 0 var(--ink),4px 4px 0 var(--ink),5px 5px 0 var(--ink),6px 6px 0 var(--ink),7px 7px 0 var(--ink),8px 8px 0 var(--ink),9px 9px 0 var(--ink),10px 10px 0 var(--ink),11px 18px 20px rgba(43,45,91,.35)}
+  .logo span.l:nth-child(1){transform:rotate(-7deg);animation-delay:0s}
+  .logo span.l:nth-child(2){transform:rotate(4deg);animation-delay:.15s}
+  .logo span.l:nth-child(3){transform:rotate(-3deg);animation-delay:.3s}
+  .logo span.l:nth-child(4){transform:rotate(6deg);animation-delay:.45s}
+  .logo span.l:nth-child(5){transform:rotate(-5deg);animation-delay:.6s}
+  .logo span.l:nth-child(6){transform:rotate(3deg);animation-delay:.75s}
+  .logo .row1 span.l{margin:0 1px}
+  @keyframes bob{0%,100%{translate:0 0}50%{translate:0 -9px}}
+  .tagline{display:inline-block;margin-top:14px;background:var(--sun);color:var(--ink);border:4px solid var(--ink);border-radius:14px;padding:5px 14px;font-size:clamp(12px,3.2vw,17px);transform:rotate(-2deg);box-shadow:0 5px 0 var(--ink);pointer-events:none}
+
+  .spacer{flex:1 0 26vh;min-height:150px}   /* the 3D scene (the two idiots) shows through this gap */
+  details.how{margin-top:12px}
+  details.how summary{cursor:pointer;list-style:none;display:inline-block;background:var(--cream);border:3px solid var(--ink);border-radius:999px;padding:4px 14px;font-size:13px;box-shadow:0 3px 0 var(--ink)}
+  details.how summary::-webkit-details-marker{display:none}
+  details.how[open] summary{background:var(--sun)}
+  @media (max-height:560px){ .logo .row1 span.l{font-size:34px} .logo .row2 span.l{font-size:46px} .tagline{display:none} .spacer{flex:0 0 26vh;min-height:90px} .card{padding:12px 16px 10px} }
+
+  /* ---------- cards ---------- */
+  .card{width:min(460px,100%);background:#fff;border:4px solid var(--ink);border-radius:26px;padding:20px 20px 16px;box-shadow:0 9px 0 var(--ink);flex:0 0 auto;margin-bottom:10px;position:relative}
+  .card.tilt{transform:rotate(-1deg)}
+  .card h2{font-size:22px;margin-bottom:10px}
+  label{display:block;font-size:13px;color:var(--soft);margin:12px 0 5px}
+  input{width:100%;padding:12px 14px;border-radius:14px;border:3px solid var(--ink);background:var(--cream);color:var(--ink);font-size:18px;font-family:inherit;outline:none}
+  input:focus-visible{box-shadow:0 0 0 4px var(--sun)}
+  .row{display:flex;gap:10px;margin-top:12px}
+  button{font-family:inherit;font-size:17px;border:3px solid var(--ink);border-radius:18px;padding:13px 16px;cursor:pointer;color:var(--ink);transition:transform .08s,box-shadow .08s}
+  button:active{transform:translateY(4px);box-shadow:0 0 0 var(--ink)!important}
+  button:focus-visible{outline:4px solid var(--sun);outline-offset:2px}
+  button:disabled{opacity:.55;cursor:wait}
+  .btn-t{background:var(--mint);box-shadow:0 6px 0 var(--ink);flex:1}
+  .btn-e{background:var(--tang);box-shadow:0 6px 0 var(--ink);flex:0 0 auto}
+  .btn-g{background:var(--cream);box-shadow:0 6px 0 var(--ink)}
+  .big{font-size:20px;padding:15px 16px}
+  .or{display:flex;align-items:center;gap:10px;margin:14px 0 2px;color:var(--soft);font-size:13px}
+  .or::before,.or::after{content:"";flex:1;height:3px;background:repeating-linear-gradient(90deg,#c9cdee 0 6px,transparent 6px 12px)}
+  .note{font-size:13px;color:var(--soft);line-height:1.5;margin-top:10px;font-family:"Trebuchet MS",system-ui,sans-serif}
+  .err{color:#d6204f;font-size:14px;margin-top:8px;min-height:18px;font-family:"Trebuchet MS",system-ui,sans-serif}
+  .loading{font-size:13px;color:var(--soft);margin-top:6px;font-family:"Trebuchet MS",system-ui,sans-serif}
+  kbd{background:var(--cream);border:2px solid var(--ink);border-radius:7px;padding:0 6px;color:var(--ink);font-size:12px;margin:0 1px}
+
+  .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .chipx{background:var(--cream);border:3px solid var(--ink);border-radius:14px;padding:7px 2px 5px;text-align:center;font-size:11px;line-height:1.2;box-shadow:0 3px 0 var(--ink)}
+  .chipx i{display:block;font-style:normal;font-size:24px;margin-bottom:2px}
+  .sticker{position:absolute;right:-8px;top:-18px;transform:rotate(8deg);background:var(--berry);color:#fff;border:3px solid var(--ink);border-radius:999px;padding:4px 12px;font-size:13px;box-shadow:0 4px 0 var(--ink);animation:wob 2s ease-in-out infinite}
+  @keyframes wob{0%,100%{transform:rotate(8deg) scale(1)}50%{transform:rotate(4deg) scale(1.07)}}
+
+  /* waiting room */
+  .code{font-size:clamp(38px,12vw,54px);letter-spacing:8px;text-align:center;color:var(--ink);background:repeating-linear-gradient(135deg,#ffd45e 0 14px,#ffc93c 14px 28px);border:4px dashed var(--ink);border-radius:18px;padding:8px 0 8px 8px;margin:4px 0 12px;user-select:all}
+  .slots{display:flex;gap:10px;margin:6px 0 4px}
+  .slot{flex:1;border:3px solid var(--ink);border-radius:16px;padding:10px 6px;text-align:center;font-size:14px;background:var(--cream)}
+  .slot b{display:block;font-size:30px}
+  .slot.you{background:#c9f6ee}
+  .slot.wait{background:#ffe6d3}
+  .dots::after{content:"";animation:dots 1.4s steps(4) infinite}
+  @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+  .vstat{background:var(--cream);border:3px solid var(--ink);border-radius:14px;padding:8px 12px;font-size:14px;text-align:center;margin-top:10px}
+
+  /* win */
+  .bigstars{font-size:46px;letter-spacing:6px;margin:6px 0 10px;text-align:center}
+  .stats{display:flex;justify-content:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  .stat{background:var(--cream);border:3px solid var(--ink);border-radius:14px;padding:8px 14px;font-size:14px;text-align:center}
+  .stat b{display:block;font-size:22px}
+
+  /* ---------- in-game HUD ---------- */
+  #hud2d{position:absolute;inset:0;pointer-events:none;z-index:5;display:none}
+  #app.ingame #hud2d{display:block}
+  .pill{display:inline-block;background:#fff;border:3px solid var(--ink);border-radius:999px;padding:4px 12px;font-size:14px;box-shadow:0 3px 0 var(--ink);margin-right:6px;white-space:nowrap}
+  #hudTop{position:absolute;left:10px;top:max(8px,env(safe-area-inset-top))}
+  #banner{position:absolute;left:50%;top:18%;transform:translate(-50%,0);font-size:clamp(26px,6vw,46px);color:#ffc93c;-webkit-text-stroke:7px var(--ink);paint-order:stroke fill;text-align:center;opacity:0;transition:opacity .25s;white-space:nowrap}
+  #banner.show{opacity:1;animation:pop .4s}
+  @keyframes pop{0%{transform:translate(-50%,0) scale(.6)}70%{transform:translate(-50%,0) scale(1.12)}100%{transform:translate(-50%,0) scale(1)}}
+  #count{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:clamp(90px,22vw,180px);color:#ffc93c;-webkit-text-stroke:10px var(--ink);paint-order:stroke fill;display:none}
+  #dock{position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(470px,92%);background:#fff;border:4px solid var(--ink);border-radius:18px;padding:10px 14px;text-align:center;box-shadow:0 5px 0 var(--ink);display:none;font-size:15px;line-height:1.5}
+  #dock b{font-size:19px;display:block}
+  #dock .ok{color:var(--mint-d)} #dock .no{color:#8b8eb5}
+  #hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(560px,92%);background:#ffffffee;border:3px solid var(--ink);border-radius:14px;padding:8px 44px 8px 14px;text-align:left;font-size:14px;line-height:1.35;display:none;font-family:"Trebuchet MS",system-ui,sans-serif;pointer-events:auto}
+  #hintX{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;padding:0;border-radius:50%;background:#ff5d8f;color:#fff;font-size:16px;box-shadow:0 3px 0 var(--ink);border-width:3px}
+  @media (pointer:coarse){ #hint{width:calc(100% - 330px);bottom:10px;font-size:12px;padding:6px 40px 6px 10px} #hintX{width:30px;height:30px} #dock{font-size:13px;padding:6px 10px;top:56px} #dock b{font-size:16px} }
+  #done{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,92%);background:#fff;border:4px solid var(--ink);border-radius:22px;padding:16px 18px;text-align:center;box-shadow:0 8px 0 var(--ink);display:none}
+  #done h3{font-size:28px;margin-bottom:6px}
+  #done .st{font-size:34px;letter-spacing:6px;margin:4px 0}
+  #arrow{position:absolute;display:none;background:var(--sun);border:3px solid var(--ink);border-radius:999px;padding:3px 10px;font-size:13px;transform:translate(-50%,-50%)}
+  .tag{position:absolute;transform:translate(-50%,-100%);background:#fff;border:3px solid var(--ink);border-radius:999px;padding:1px 9px;font-size:12px;white-space:nowrap;display:none}
+  .tag.talk::after{content:" 🎙";}
+
+  #hud{position:absolute;right:8px;top:max(8px,env(safe-area-inset-top));display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:62%;z-index:6;pointer-events:none}
+  #hud>*{pointer-events:auto}
+  #app:not(.ingame) #hud,#app:not(.ingame) #touch{display:none!important}
+  .chip{display:flex;align-items:center;gap:6px;background:#fff;border:3px solid var(--ink);border-radius:999px;padding:3px 10px;font-size:12px;box-shadow:0 3px 0 var(--ink)}
+  .dot{width:11px;height:11px;border-radius:50%;background:#c9cdee;border:2px solid var(--ink);transition:transform .1s}
+  .dot.me.talk{background:var(--mint);transform:scale(1.35)}
+  .dot.ot.talk{background:var(--tang);transform:scale(1.35)}
+  .chip input[type=range]{width:56px;padding:0;border:0;background:none;accent-color:#19c3a6;box-shadow:none}
+  .chip button{padding:2px 9px;font-size:12px;border-radius:999px;background:var(--sun);box-shadow:none;border-width:2px}
+  .chip button.off{background:#ffb3c6}
+
+  #touch{position:absolute;inset:auto 0 12px 0;display:none;justify-content:space-between;padding:0 14px;z-index:6;pointer-events:none}
+  #touch .grp{display:flex;gap:10px;pointer-events:auto}
+  #touch button{width:66px;height:66px;border-radius:50%;background:#ffffffcc;color:var(--ink);font-size:22px;box-shadow:0 5px 0 var(--ink);touch-action:none;padding:0;opacity:.85}
+  @media (pointer:coarse){ #touch{display:flex} }
+  @media (prefers-reduced-motion:reduce){ .logo span.l,.sticker{animation:none} button,.dot{transition:none} }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl" aria-label="Game view"></canvas>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+
+  <!-- ===== LOBBY: create / join ===== -->
+  <div class="screen" id="menu">
+    <div class="logo" aria-label="Two Idiots">
+      <span class="row1"><span class="l">T</span><span class="l">W</span><span class="l">O</span></span>
+      <span class="row2"><span class="l">I</span><span class="l">D</span><span class="l">I</span><span class="l">O</span><span class="l">T</span><span class="l">S</span></span>
+      <span class="tagline">Two ragdolls. One goal. Zero chill.</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="card tilt">
+      <span class="sticker">🎙 voice chat!</span>
+      <h2>Who are you?</h2>
+      <input id="name" maxlength="12" placeholder="Type your idiot name" autocomplete="off">
+      <div class="row"><button class="btn-t big" id="btnCreate" disabled>🏠 Make a room</button><button class="btn-e big" id="btnQuick" disabled style="flex:1;font-size:16px;padding-left:8px;padding-right:8px">⚡ Quick match</button></div>
+      <div class="or">or join your friend</div>
+      <div class="row" style="margin-top:8px">
+        <input id="code" maxlength="5" placeholder="CODE" style="text-transform:uppercase;letter-spacing:5px;text-align:center">
+        <button class="btn-e" id="btnJoin" disabled>🚪 Join</button>
+      </div>
+      <div class="err" id="menuErr"></div>
+      <div class="loading"><span id="loadMsg">Loading levels…</span> &nbsp; <span id="onlineMsg"></span></div>
+      <details class="how"><summary>❓ How to play</summary>
+      <div class="chips">
+        <div class="chipx"><i>🧗</i>Head<br>boost</div>
+        <div class="chipx"><i>🤝</i>Pull each<br>other up</div>
+        <div class="chipx"><i>📦</i>Push<br>crates</div>
+        <div class="chipx"><i>🚀</i>Launch<br>pad</div>
+      </div>
+      <div class="note">Nobody can finish alone. Allow the microphone and shout at your partner. Controls: <kbd>A</kbd><kbd>D</kbd> move, <kbd>W</kbd>/<kbd>Space</kbd> jump, <kbd>E</kbd> action, <kbd>R</kbd> respawn, <kbd>M</kbd> mute.</div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ===== LOBBY: waiting room ===== -->
+  <div class="screen hidden" id="wait">
+    <div class="logo" style="transform:scale(.62);transform-origin:top center;margin-bottom:-60px">
+      <span class="row1"><span class="l">T</span><span class="l">W</span><span class="l">O</span></span>
+      <span class="row2"><span class="l">I</span><span class="l">D</span><span class="l">I</span><span class="l">O</span><span class="l">T</span><span class="l">S</span></span>
+    </div>
+    <div class="spacer"></div>
+    <div class="card">
+      <h2 id="waitTitle">Your room is ready!</h2>
+      <p class="note" id="waitSub" style="margin:0 0 8px">Send this code (or the link) to your partner in crime.</p>
+      <div class="code" id="roomCode">-----</div>
+      <div class="slots">
+        <div class="slot you"><b>🤪</b>You<br><small>ready</small></div>
+        <div class="slot wait"><b>😴</b>Partner<br><small class="dots">waiting</small></div>
+      </div>
+      <div class="vstat">🎙 <span id="waitVoice">Voice chat: starting…</span></div>
+      <div class="row"><button class="btn-g" id="btnCopy" style="flex:1">📋 Copy invite link</button><button class="btn-g" id="btnLeave">Back</button></div>
+    </div>
+  </div>
+
+  <!-- ===== WIN ===== -->
+  <div class="screen hidden dim" id="win">
+    <div class="card" style="text-align:center">
+      <h2 style="font-size:28px">You made it, together!</h2>
+      <div class="bigstars" id="winStars">★★★</div>
+      <div class="stats" id="winStats"></div>
+      <div class="row"><button class="btn-t big" id="btnAgain">Run it again</button></div>
+      <div class="note" id="winNote"></div>
+    </div>
+  </div>
+
+  <!-- ===== IN-GAME HUD ===== -->
+  <div id="hud2d">
+    <div id="hudTop"><span class="pill" id="hLevel">Level</span><span class="pill" id="hStars">★ 0/0</span><span class="pill" id="hTime">0:00</span><span class="pill" id="hDeaths" style="display:none">✖ 0</span></div>
+    <div id="banner"></div>
+    <div id="count"></div>
+    <div id="dock"></div>
+    <div id="hint"><span id="hintText"></span><button id="hintX" aria-label="Close tip">✕</button></div>
+    <div id="done"></div>
+    <div id="arrow">Partner</div>
+    <div class="tag" id="tag0"></div>
+    <div class="tag" id="tag1"></div>
+  </div>
+  <div id="hud">
+    <div class="chip"><span class="dot me" id="dotMe"></span><span id="lblMe">You</span></div>
+    <div class="chip"><span class="dot ot" id="dotOther"></span><span id="lblOther">Partner</span></div>
+    <div class="chip" title="Round trip to the game server">🌐 <span id="pingTxt">--</span></div>
+    <div class="chip">🎙 <span id="vcState">Voice off</span><button id="btnMute">Mute</button><input id="vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Partner volume"><button id="btnEnableVoice" style="display:none">Tap to hear</button></div>
+    <div class="chip"><button id="btnSfx">Sound on</button><button id="btnMusic">Music on</button><button id="btnFs">Fullscreen</button></div>
+    <div class="chip"><button id="btnTip">💡 Tip</button><button id="btnRespawn">Respawn (R)</button><button id="btnRestart" style="display:none">Restart level</button></div>
+  </div>
+  <div id="touch">
+    <div class="grp"><button id="tL">◀</button><button id="tR">▶</button></div>
+    <div class="grp"><button id="tE" style="font-size:16px">E</button><button id="tJ">▲</button></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="levels/manifest.js"></script>
+<script src="engine.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "two-idiots",
+  "version": "1.0.0",
+  "description": "Two Idiots - 3D co-op ragdoll parkour (game + server)",
+  "private": true,
+  "scripts": { "start": "node server/server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}
