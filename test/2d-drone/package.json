@@ -1,0 +1,12 @@
+{
+  "name": "tandem-lift-2d-online",
+  "version": "1.0.0",
+  "description": "Multiplayer server for Tandem Lift 2D Online (also serves the game)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
