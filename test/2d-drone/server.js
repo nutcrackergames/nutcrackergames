@@ -24,7 +24,7 @@ const PORT = +process.env.PORT || 8080;
 const GRACE_MS = +process.env.GRACE_MS || 10000;
 const ROOM_TTL_MS = 5 * 60 * 1000;
 const MAX_ROOMS = 500;
-const GAME_FILE = process.env.GAME_FILE || path.join(__dirname, 'tandem-lift-2d-server.html');
+const GAME_FILE = process.env.GAME_FILE || path.join(__dirname, 'index.html');
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const RELAY = new Set(['in', 's', 'ev', 'lvl', 'react', 'rtc']);
 
