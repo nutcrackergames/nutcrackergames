@@ -420,7 +420,7 @@ function onJoin(ws, m) {
 // ---------- bots: keep a lone player company ----------
 const BOTS_ON = parseInt(process.env.BOTS || '1', 10) > 0;
 const BOT_DELAY_MS = Math.max(0, parseFloat(process.env.BOT_DELAY || '10')) * 1000;
-const BOT_NAMES = ['Viper', 'Rex', 'Ghost', 'Rook', 'Hawk', 'Bolt', 'Sarge', 'Nova'];
+const BOT_NAMES = ['Kaal', 'Ghost', 'Viper', 'DeadShot','SherX', 'Rudra', 'Phantom', 'Havoc','RajaOP', 'Reaper', 'Toofan', 'Rogue','Zoro', 'Razor', 'Ronin', 'Venom'];
 const BOT_SIGHT = 70, BOT_R = 0.5, BOT_WALK = 4.2, BOT_RUN = 6;
 const DEAD_WS = { readyState: 3, send() {}, close() {} }; // bots have no connection
 const wrapAng = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -435,7 +435,7 @@ function addBot(room) {
   const used = new Set([...room.players.values()].map((q) => q.c));
   let c = 0; while (used.has(c)) c++;
   const bot = {
-    id, ws: DEAD_WS, bot: true, name: 'Bot ' + BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)], c,
+    id, ws: DEAD_WS, bot: true, name: BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)], c,
     x: 0, y: 0, z: 0, r: 0, pt: 0, sl: 0, cr: 0, w: 0,
     hp: MAX_HP, alive: false, kills: 0, deaths: 0,
     lastShot: 0, lastMelee: 0, lastHurt: 0, inv: 0, respawnAt: 0,
