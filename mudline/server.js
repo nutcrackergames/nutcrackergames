@@ -444,7 +444,7 @@ function addBot(room) {
   room.players.set(id, bot);
   room.bot = bot;
   broadcast(room, { t: 'roster', roster: rosterList(room) });
-  broadcast(room, { t: 'notice', msg: bot.name + ' joined so you have someone to play with.' });
+  broadcast(room, { t: 'notice', msg: bot.name + ' has entered the battlefield!' });
   if (!room.gameOver) spawn(room, bot);
 }
 function removeBot(room, quiet) {
