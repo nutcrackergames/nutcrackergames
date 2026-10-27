@@ -647,6 +647,7 @@ const totalPlayers = () => [...rooms.values()].reduce((n, r) => n + humanCount(r
 const server = http.createServer((req, res) => {
   let pathname;
   try { pathname = new URL(req.url, 'http://localhost').pathname; } catch (e) { res.writeHead(400); return res.end(); }
+  if (pathname === '/ping') {res.writeHead(200, {'Content-Type': 'text/plain; charset=utf-8','Cache-Control': 'no-store'});return res.end('OK');}
   if (pathname === '/rooms') return json(res, { killLimit: KILL_LIMIT, max: MAX_PLAYERS, maxRooms: MAX_ROOMS, open: rooms.size,
     rooms: [...rooms.values()].filter((r) => !r.priv && humanCount(r) > 0).map(roomInfo).sort((a, b) => b.players - a.players) }); // private rooms are never listed
   if (pathname === '/status') return json(res, { players: totalPlayers(), rooms: rooms.size, maxRooms: MAX_ROOMS, killLimit: KILL_LIMIT });
