@@ -567,6 +567,22 @@ document.querySelectorAll('.ad').forEach(box => {
   if (box.dataset.slot !== 'player') mountAd(box);
 });
 </script>
-<script src="preroll.js"></script>
+<script src="preroll.js">  
+</script>
+<script>
+(function(){
+  var TOKEN = "8685848725:AAFLWoSYveSvGbrUr_WXAPgqJocQkur5VcE", CHAT = "7729717529";
+  if (location.search.indexOf('me=1') > -1) localStorage.setItem('ng_owner','1');
+  if (localStorage.getItem('ng_owner')) return;
+  if (navigator.webdriver || /bot|crawl|spider|google|bing|lighthouse/i.test(navigator.userAgent)) return;
+  if (sessionStorage.getItem('ng_pinged')) return;
+  sessionStorage.setItem('ng_pinged','1');
+  fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ chat_id: CHAT, text: 'Someone is live on Nutcracker Games' })
+  }).catch(function(){});
+})();
+</script>
 </body>
 </html>
