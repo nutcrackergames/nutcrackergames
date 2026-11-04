@@ -1,0 +1,13 @@
+{
+  "name": "tandem-lift",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Two-player co-op drone game with a game server and voice chat",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
