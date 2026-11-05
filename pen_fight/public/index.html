@@ -1807,7 +1807,7 @@ async function enterFullscreen() {
         }
 
         if (screen.orientation?.lock) {
-            await screen.orientation.lock('landscape');
+            await screen.orientation.lock('portrait');
         }
     } catch (err) {
         console.log("Fullscreen requires user interaction:", err);
