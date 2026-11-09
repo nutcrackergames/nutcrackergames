@@ -1764,6 +1764,24 @@ newAttempt();
 showPanel('menu'); panel.classList.add('hidden'); panelShown = false;
 showHome();
 requestAnimationFrame(frame);
+// ---------- Auto Fullscreen ----------
+async function enterFullscreen() {
+    try {
+        if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen();
+        }
+
+        if (screen.orientation?.lock) {
+            await screen.orientation.lock('landscape');
+        }
+    } catch (err) {
+        console.log("Fullscreen requires user interaction:", err);
+    }
+}
+
+window.addEventListener('load', enterFullscreen);
+document.addEventListener('click', enterFullscreen, { once: true });
+document.addEventListener('touchstart', enterFullscreen, { once: true });
 })();
 </script>
 </body>
