@@ -1,5 +1,5 @@
 {
-  "name": "drift-game",
+  "name": "Only-Down",
   "version": "1.0.0",
   "description": "Drift: hop down the floating wreckage to the island. Includes a shared top 10 leaderboard.",
   "main": "server.js",
