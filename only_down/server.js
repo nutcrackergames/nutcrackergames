@@ -70,6 +70,8 @@ function handler(req, res) {
   const url = (req.url || '/').split('?')[0];
   if (req.method === 'OPTIONS') return send(res, 204, '');
 
+  if (url === '/healthz' && req.method === 'GET') {return send(res, 200, 'ok', 'text/plain');}
+
   if (url === '/api/leaderboard' && req.method === 'GET') return send(res, 200, readRows());
 
   if (url === '/api/score' && req.method === 'POST') {
